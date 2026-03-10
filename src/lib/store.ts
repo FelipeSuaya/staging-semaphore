@@ -15,7 +15,8 @@ const DATA_PATH = join(process.cwd(), 'data', 'environments.json')
 
 const DEFAULT_ENVIRONMENTS: Environment[] = [
   { id: 'assistant', name: 'Assistant', status: 'free', occupiedBy: null, occupiedAt: null },
-  { id: 'core-app', name: 'Core App', status: 'free', occupiedBy: null, occupiedAt: null },
+  { id: 'core', name: 'Core', status: 'free', occupiedBy: null, occupiedAt: null },
+  { id: 'app', name: 'App', status: 'free', occupiedBy: null, occupiedAt: null },
   { id: 'customer-gateway', name: 'Customer Gateway', status: 'free', occupiedBy: null, occupiedAt: null },
 ]
 

@@ -23,8 +23,9 @@ function formatTimeSince(isoDate: string): string {
 
 const ICONS: Record<string, string> = {
   assistant: '01',
-  'core-app': '02',
-  'customer-gateway': '03',
+  core: '02',
+  app: '03',
+  'customer-gateway': '04',
 }
 
 export function EnvironmentCard({ environment, index, onToggle, currentUser }: EnvironmentCardProps) {
@@ -44,8 +45,8 @@ export function EnvironmentCard({ environment, index, onToggle, currentUser }: E
       style={{
         position: 'relative',
         display: 'flex',
-        gap: '24px',
-        padding: '28px 32px',
+        gap: '20px',
+        padding: '22px 24px',
         background: 'var(--bg-card)',
         borderRadius: '20px',
         border: '1px solid var(--bg-card-border)',

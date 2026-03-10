@@ -81,11 +81,13 @@ export function Dashboard() {
       style={{
         position: 'relative',
         zIndex: 1,
-        minHeight: '100vh',
+        height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '60px 24px 40px',
+        justifyContent: 'center',
+        padding: '32px 24px',
+        overflow: 'hidden',
       }}
     >
       {/* Header */}
@@ -95,7 +97,7 @@ export function Dashboard() {
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         style={{
           textAlign: 'center',
-          marginBottom: '56px',
+          marginBottom: '32px',
         }}
       >
         <div
@@ -173,11 +175,11 @@ export function Dashboard() {
       {/* Environment Cards */}
       <div
         style={{
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
           gap: '16px',
           width: '100%',
-          maxWidth: '640px',
+          maxWidth: '900px',
         }}
       >
         <AnimatePresence mode="wait">
@@ -217,7 +219,7 @@ export function Dashboard() {
         animate={{ opacity: 1 }}
         transition={{ delay: 1, duration: 0.6 }}
         style={{
-          marginTop: '56px',
+          marginTop: '32px',
           display: 'flex',
           gap: '24px',
           fontFamily: 'var(--font-mono)',
