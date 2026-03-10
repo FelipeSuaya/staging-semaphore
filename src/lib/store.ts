@@ -1,5 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs'
-import { join } from 'path'
+import { Redis } from '@upstash/redis'
 
 export type EnvironmentStatus = 'free' | 'occupied'
 
@@ -11,7 +10,7 @@ export interface Environment {
   occupiedAt: string | null
 }
 
-const DATA_PATH = join(process.cwd(), 'data', 'environments.json')
+const REDIS_KEY = 'semaphore:environments'
 
 const DEFAULT_ENVIRONMENTS: Environment[] = [
   { id: 'assistant', name: 'Assistant', status: 'free', occupiedBy: null, occupiedAt: null },
@@ -20,20 +19,22 @@ const DEFAULT_ENVIRONMENTS: Environment[] = [
   { id: 'customer-gateway', name: 'Customer Gateway', status: 'free', occupiedBy: null, occupiedAt: null },
 ]
 
-function ensureDataFile(): void {
-  if (!existsSync(DATA_PATH)) {
-    writeFileSync(DATA_PATH, JSON.stringify(DEFAULT_ENVIRONMENTS, null, 2))
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL!,
+  token: process.env.KV_REST_API_TOKEN!,
+})
+
+export async function getEnvironments(): Promise<Environment[]> {
+  const data = await redis.get<Environment[]>(REDIS_KEY)
+  if (!data) {
+    await redis.set(REDIS_KEY, DEFAULT_ENVIRONMENTS)
+    return DEFAULT_ENVIRONMENTS
   }
+  return data
 }
 
-export function getEnvironments(): Environment[] {
-  ensureDataFile()
-  const raw = readFileSync(DATA_PATH, 'utf-8')
-  return JSON.parse(raw)
-}
-
-export function toggleEnvironment(id: string, userName: string): Environment[] {
-  const environments = getEnvironments()
+export async function toggleEnvironment(id: string, userName: string): Promise<Environment[]> {
+  const environments = await getEnvironments()
   const env = environments.find(e => e.id === id)
   if (!env) throw new Error(`Environment ${id} not found`)
 
@@ -47,6 +48,6 @@ export function toggleEnvironment(id: string, userName: string): Environment[] {
     env.occupiedAt = null
   }
 
-  writeFileSync(DATA_PATH, JSON.stringify(environments, null, 2))
+  await redis.set(REDIS_KEY, environments)
   return environments
 }
