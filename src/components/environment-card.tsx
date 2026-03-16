@@ -8,6 +8,7 @@ interface EnvironmentCardProps {
   environment: Environment
   index: number
   onToggle: (id: string) => void
+  onWaitlist: (id: string, action: 'join' | 'leave') => void
   currentUser: string
 }
 
@@ -28,10 +29,12 @@ const ICONS: Record<string, string> = {
   'customer-gateway': '04',
 }
 
-export function EnvironmentCard({ environment, index, onToggle, currentUser }: EnvironmentCardProps) {
-  const { id, name, status, occupiedBy, occupiedAt } = environment
+export function EnvironmentCard({ environment, index, onToggle, onWaitlist, currentUser }: EnvironmentCardProps) {
+  const { id, name, status, occupiedBy, occupiedAt, waitlist = [] } = environment
   const isOccupied = status === 'occupied'
   const isOccupiedByMe = isOccupied && occupiedBy === currentUser
+  const isOnWaitlist = waitlist.includes(currentUser)
+  const isOccupiedByOther = isOccupied && !isOccupiedByMe
 
   return (
     <motion.div
@@ -195,6 +198,53 @@ export function EnvironmentCard({ environment, index, onToggle, currentUser }: E
               : `locked by ${occupiedBy}`
           }
         </motion.div>
+
+        {/* Waitlist section */}
+        {isOccupiedByOther && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onWaitlist(id, isOnWaitlist ? 'leave' : 'join')
+              }}
+              style={{
+                alignSelf: 'flex-start',
+                background: isOnWaitlist ? 'rgba(0, 216, 255, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                border: `1px solid ${isOnWaitlist ? 'rgba(0, 216, 255, 0.3)' : 'rgba(255, 255, 255, 0.08)'}`,
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                color: isOnWaitlist ? 'var(--cyan)' : 'var(--text-muted)',
+                cursor: 'pointer',
+                letterSpacing: '0.05em',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {isOnWaitlist ? 'leave waitlist' : 'join waitlist'}
+            </button>
+            {waitlist.length > 0 && (
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  letterSpacing: '0.03em',
+                }}
+              >
+                <span style={{ opacity: 0.5 }}>waiting: </span>
+                {waitlist.map((user, i) => (
+                  <span key={user}>
+                    {i > 0 && <span style={{ opacity: 0.3 }}>, </span>}
+                    <span style={{ color: user === currentUser ? 'var(--cyan)' : 'var(--text-secondary)' }}>
+                      {user === currentUser ? 'you' : user}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Corner badge */}

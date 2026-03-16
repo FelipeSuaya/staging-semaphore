@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { EnvironmentCard } from './environment-card'
 import { UserPrompt } from './user-prompt'
@@ -13,6 +13,8 @@ export function Dashboard() {
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const prevEnvironmentsRef = useRef<Environment[]>([])
+  const autoClaimRef = useRef<(id: string) => void>(() => {})
 
   // Load user from localStorage
   useEffect(() => {
@@ -20,18 +22,65 @@ export function Dashboard() {
     if (stored) setUserName(stored)
   }, [])
 
+  const playNotificationSound = useCallback(() => {
+    try {
+      const ctx = new AudioContext()
+      const oscillator = ctx.createOscillator()
+      const gain = ctx.createGain()
+      oscillator.connect(gain)
+      gain.connect(ctx.destination)
+
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime)
+      oscillator.frequency.setValueAtTime(1100, ctx.currentTime + 0.1)
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime + 0.2)
+
+      gain.gain.setValueAtTime(0.3, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4)
+
+      oscillator.start(ctx.currentTime)
+      oscillator.stop(ctx.currentTime + 0.4)
+    } catch {
+      // Web Audio API not available
+    }
+  }, [])
+
   const fetchEnvironments = useCallback(async () => {
     try {
       const res = await fetch('/api/environments')
-      const data = await res.json()
+      const data: Environment[] = await res.json()
+
+      // Auto-claim envs that just became free where I'm on the waitlist
+      const envsToAutoClaim: string[] = []
+      if (userName && prevEnvironmentsRef.current.length > 0) {
+        for (const env of data) {
+          const prev = prevEnvironmentsRef.current.find(e => e.id === env.id)
+          if (
+            prev &&
+            prev.status === 'occupied' &&
+            env.status === 'free' &&
+            (prev.waitlist ?? []).includes(userName)
+          ) {
+            envsToAutoClaim.push(env.id)
+          }
+        }
+      }
+
+      prevEnvironmentsRef.current = data
       setEnvironments(data)
       setLastUpdated(new Date())
+
+      // Fire auto-claims after state update
+      for (const envId of envsToAutoClaim) {
+        playNotificationSound()
+        autoClaimRef.current(envId)
+      }
     } catch (err) {
       console.error('Failed to fetch environments:', err)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [userName, playNotificationSound])
 
   // Poll for updates
   useEffect(() => {
@@ -54,7 +103,7 @@ export function Dashboard() {
       if (env.status === 'free') {
         return { ...env, status: 'occupied', occupiedBy: userName, occupiedAt: new Date().toISOString() }
       }
-      return { ...env, status: 'free', occupiedBy: null, occupiedAt: null }
+      return { ...env, status: 'free', occupiedBy: null, occupiedAt: null, waitlist: [] }
     }))
 
     try {
@@ -68,6 +117,38 @@ export function Dashboard() {
       setLastUpdated(new Date())
     } catch (err) {
       console.error('Failed to toggle:', err)
+      fetchEnvironments()
+    }
+  }
+
+  autoClaimRef.current = (id: string) => {
+    handleToggle(id)
+  }
+
+  async function handleWaitlist(id: string, action: 'join' | 'leave') {
+    if (!userName) return
+
+    // Optimistic update
+    setEnvironments(prev => prev.map(env => {
+      if (env.id !== id) return env
+      const waitlist = action === 'join'
+        ? [...env.waitlist, userName]
+        : env.waitlist.filter(u => u !== userName)
+      return { ...env, waitlist }
+    }))
+
+    try {
+      const res = await fetch('/api/environments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, id, userName }),
+      })
+      const data = await res.json()
+      prevEnvironmentsRef.current = data
+      setEnvironments(data)
+      setLastUpdated(new Date())
+    } catch (err) {
+      console.error('Failed to update waitlist:', err)
       fetchEnvironments()
     }
   }
@@ -206,6 +287,7 @@ export function Dashboard() {
                 environment={env}
                 index={i}
                 onToggle={handleToggle}
+                onWaitlist={handleWaitlist}
                 currentUser={userName}
               />
             ))

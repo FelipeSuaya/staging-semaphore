@@ -8,15 +8,16 @@ export interface Environment {
   status: EnvironmentStatus
   occupiedBy: string | null
   occupiedAt: string | null
+  waitlist: string[]
 }
 
 const REDIS_KEY = 'semaphore:environments'
 
 const DEFAULT_ENVIRONMENTS: Environment[] = [
-  { id: 'assistant', name: 'Assistant', status: 'free', occupiedBy: null, occupiedAt: null },
-  { id: 'core', name: 'Core', status: 'free', occupiedBy: null, occupiedAt: null },
-  { id: 'app', name: 'App', status: 'free', occupiedBy: null, occupiedAt: null },
-  { id: 'customer-gateway', name: 'Customer Gateway', status: 'free', occupiedBy: null, occupiedAt: null },
+  { id: 'assistant', name: 'Assistant', status: 'free', occupiedBy: null, occupiedAt: null, waitlist: [] },
+  { id: 'core', name: 'Core', status: 'free', occupiedBy: null, occupiedAt: null, waitlist: [] },
+  { id: 'app', name: 'App', status: 'free', occupiedBy: null, occupiedAt: null, waitlist: [] },
+  { id: 'customer-gateway', name: 'Customer Gateway', status: 'free', occupiedBy: null, occupiedAt: null, waitlist: [] },
 ]
 
 const redis = new Redis({
@@ -30,7 +31,8 @@ export async function getEnvironments(): Promise<Environment[]> {
     await redis.set(REDIS_KEY, DEFAULT_ENVIRONMENTS)
     return DEFAULT_ENVIRONMENTS
   }
-  return data
+  // Backfill waitlist for existing data without it
+  return data.map(env => ({ ...env, waitlist: env.waitlist ?? [] }))
 }
 
 export async function toggleEnvironment(id: string, userName: string): Promise<Environment[]> {
@@ -46,7 +48,32 @@ export async function toggleEnvironment(id: string, userName: string): Promise<E
     env.status = 'free'
     env.occupiedBy = null
     env.occupiedAt = null
+    env.waitlist = []
   }
+
+  await redis.set(REDIS_KEY, environments)
+  return environments
+}
+
+export async function joinWaitlist(id: string, userName: string): Promise<Environment[]> {
+  const environments = await getEnvironments()
+  const env = environments.find(e => e.id === id)
+  if (!env) throw new Error(`Environment ${id} not found`)
+
+  if (!env.waitlist.includes(userName)) {
+    env.waitlist.push(userName)
+  }
+
+  await redis.set(REDIS_KEY, environments)
+  return environments
+}
+
+export async function leaveWaitlist(id: string, userName: string): Promise<Environment[]> {
+  const environments = await getEnvironments()
+  const env = environments.find(e => e.id === id)
+  if (!env) throw new Error(`Environment ${id} not found`)
+
+  env.waitlist = env.waitlist.filter(u => u !== userName)
 
   await redis.set(REDIS_KEY, environments)
   return environments
