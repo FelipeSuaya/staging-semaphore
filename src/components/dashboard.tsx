@@ -94,7 +94,7 @@ export function Dashboard() {
     setUserName(name)
   }
 
-  async function handleToggle(id: string) {
+  async function handleToggle(id: string, autoClaim = false) {
     if (!userName) return
 
     // Optimistic update
@@ -110,7 +110,7 @@ export function Dashboard() {
       const res = await fetch('/api/environments', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, userName }),
+        body: JSON.stringify({ id, userName, autoClaim }),
       })
       const data = await res.json()
       setEnvironments(data)
@@ -122,7 +122,7 @@ export function Dashboard() {
   }
 
   autoClaimRef.current = (id: string) => {
-    handleToggle(id)
+    handleToggle(id, true)
   }
 
   async function handleWaitlist(id: string, action: 'join' | 'leave') {
