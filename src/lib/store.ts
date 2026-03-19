@@ -78,3 +78,34 @@ export async function leaveWaitlist(id: string, userName: string): Promise<Envir
   await redis.set(REDIS_KEY, environments)
   return environments
 }
+
+export async function extendEnvironment(id: string, userName: string): Promise<Environment[]> {
+  const environments = await getEnvironments()
+  const env = environments.find(e => e.id === id)
+  if (!env) throw new Error(`Environment ${id} not found`)
+  if (env.status !== 'occupied' || env.occupiedBy !== userName) {
+    throw new Error(`Environment ${id} is not occupied by ${userName}`)
+  }
+
+  env.occupiedAt = new Date().toISOString()
+
+  await redis.set(REDIS_KEY, environments)
+  return environments
+}
+
+export async function forceRelease(id: string): Promise<Environment[]> {
+  const environments = await getEnvironments()
+  const env = environments.find(e => e.id === id)
+  if (!env) throw new Error(`Environment ${id} not found`)
+  if (env.status !== 'occupied') {
+    throw new Error(`Environment ${id} is not occupied`)
+  }
+
+  env.status = 'free'
+  env.occupiedBy = null
+  env.occupiedAt = null
+  env.waitlist = []
+
+  await redis.set(REDIS_KEY, environments)
+  return environments
+}
